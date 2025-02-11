@@ -6,6 +6,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_groq import ChatGroq
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from dotenv import load_dotenv
+import time
 
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -16,6 +17,7 @@ def retrieve_from_endpoint(url: str) -> dict:
     response = requests.get(url, headers=headers)
     response.raise_for_status()
     return json.dumps(response.json())
+
 @tool
 def get_company_overview(stock: str) -> str:
     """Get company overview"""
@@ -33,7 +35,9 @@ def get_daily_tx(stock: str, start_date: str, end_date: str) -> str:
     """Get daily transaction for a stock"""
     url = f"https://api.sectors.app/v1/daily/{stock}/?start={start_date}&end={end_date}"
     return retrieve_from_endpoint(url)
+
 tools = [get_company_overview, get_top_companies_by_tx_volume, get_daily_tx]
+
 prompt = ChatPromptTemplate.from_messages(
     [
         ("system", 
@@ -42,7 +46,7 @@ prompt = ChatPromptTemplate.from_messages(
          explicitly provided, infer from the query. Whenever you return a 
          list of names, return also the corresponding values for each name. 
          If the volume was about a single day, the start and end 
-         parameter should be the same."""
+         parameter should be the same.""" 
         ),
         ("human", "{input}"),
         MessagesPlaceholder("agent_scratchpad"),
@@ -52,22 +56,34 @@ prompt = ChatPromptTemplate.from_messages(
 # Initialize AI model
 llm = ChatGroq(
     temperature=0,
-    model_name="llama-3.1-8b-instant",
+    model_name="qwen-2.5-32b",
     groq_api_key=GROQ_API_KEY,
 )
 
 # Create the agent
 agent = create_tool_calling_agent(llm, tools, prompt)
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=False)  # Disable verbose
 
 # Interactive mode
 print("Stock AI Chatbot - Type 'exit' to quit")
 while True:
-    user_query = input("\nAsk me about stock market data: ")
+    user_query = input("\nEnter questions: ")
 
     if user_query.lower() in ["exit", "quit"]:
         print("Goodbye!")
         break
 
+    # Mulai hitung waktu
+    start_time = time.time()
+
+    # Mendapatkan hasil AI
     response = agent_executor.invoke({"input": user_query})
-    print("\nAI Response:\n", response["output"])
+
+    # Akhiri hitung waktu
+    end_time = time.time()
+    execution_time = end_time - start_time
+
+    # Menampilkan hasil secara langsung
+    print("\nAI Response:")
+    print(response["output"], flush=True)  # Print only output without verbose info
+    print(f"\nExecution Time: {execution_time:.2f} seconds", flush=True)
