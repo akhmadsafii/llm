@@ -11,12 +11,19 @@ import time
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 SECTORS_API_KEY = os.getenv("SECTORS_API_KEY")
+URL_API = os.getenv("URL_API")
 
 def retrieve_from_endpoint(url: str) -> dict:
     headers = {"Authorization": SECTORS_API_KEY}
     response = requests.get(url, headers=headers)
     response.raise_for_status()
     return json.dumps(response.json())
+    
+@tool
+def get_company_overview(stock: str) -> str:
+    """Retrieve QCC themes, associated teams, and their respective periods"""
+    url = f"{URL_API}/get_qcc_tema_by_team"
+    return retrieve_from_endpoint(url)
 
 @tool
 def get_company_overview(stock: str) -> str:
